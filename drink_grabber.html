@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<body>
+<meta charset="utf-8"/>
+
+<h1>Drink Grabber</h1>
+<div id="my_buttons"></div>
+<div id="function_text"></div>
+
+<script type="text/javascript" src="libs/roslib.js"></script>
+
+<script type="text/javascript" type="text/javascript">
+
+    // Set ROS port number
+    var ros_url = 'ws://localhost:9090'
+    // Connect to ROS
+    var ros = new ROSLIB.Ros({
+        url : ros_url
+    });
+
+    // Get HTML elements
+    var myButtons = document.getElementById("my_buttons");
+    var functionText = document.getElementById("function_text");
+
+    // A string representation of the drinks on the shelf
+    // '0' there is a drink, '_' there is no drink
+    var drink_visual_data;
+    drink_not = '_';
+    drink_there = '0';
+
+    // "Listen" for drink location data
+    var drink_listener = new ROSLIB.Topic({
+        ros : ros,
+        name : '/my_robot/drink_visual',
+        messageType : 'std_msgs/String'
+    });
+    drink_listener.subscribe(callback);
+
+    // Will publish which drink that the user selects to grab
+    var drink_value;
+    var drink_pub = new ROSLIB.Topic({
+        ros : ros,
+        name : '/my_robot/drink_selection',
+        messageType : 'std_msgs/String'
+    });
+
+    // If multiple messages get published, keeps appending more buttons
+    function callback(message)
+    {
+        // "Listen" for drink visual data translated from robot's camera
+        drink_visual_data = message.data;
+    
+        // Loop variables
+        var i = 0;
+        var num_slots = drink_visual_data.length;
+
+        // Creates a variable amount of buttons based on visual data
+        for (i = 0; i < num_slots; i++)
+        {
+            var button = document.createElement("button");
+
+            // If there is a drink in the slot, set the button's value
+            // Otherwise, set button to no drink character
+            if (drink_visual_data.charAt(i) == drink_there)
+            {
+                button.innerHTML = i;
+                button.value = i;
+            }
+            else
+            {
+                button.innerHTML = drink_not;
+                button.value = drink_not;
+            }
+
+            // Append button to button section
+            my_buttons.appendChild(button);
+        }
+
+        // Adds a listener function to each button
+        // If there is a drink, will publish that drink's value
+        // If there is no drink, will publish an error message
+        for (i = 0; i < num_slots; i++)
+        {
+            if (my_buttons.childNodes[i].value != drink_not)
+                my_buttons.childNodes[i].addEventListener("click", select_drink);
+            else
+                my_buttons.childNodes[i].addEventListener("click", select_error);
+        }
+    }
+
+    // Display and publish user's drink selection
+    function select_drink(event)
+    {
+        functionText.innerHTML = "Your selection: " + event.target.value;
+        drink_value = event.target.value;
+
+        // Create message to publish
+        var drink_msg = new ROSLIB.Message({
+            data : drink_value
+        });
+
+        // Publish message
+        drink_pub.publish(drink_msg);
+    }
+
+    // Display and publish error message
+    function select_error(event)
+    {
+        error_string = "Invalid selection: no drink in this slot";
+        functionText.innerHTML = error_string;
+
+        // Create message to publish
+        var drink_msg = new ROSLIB.Message({
+            data : error_string
+        });
+
+        // Publish message
+        drink_pub.publish(drink_msg);
+    }
+
+</script>
+
+</body>
+</html>
